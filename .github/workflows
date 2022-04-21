@@ -1,0 +1,47 @@
+name: Ko Caller
+
+on: 
+  workflow_dispatch:
+  push:
+    tags:
+      - "*" 
+
+permissions: read-all
+
+jobs:
+  args:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.ldflags.outputs.version }}
+      something: ${{ steps.ldflags.outputs.something }}
+    steps:
+      - id: checkout
+        uses: actions/checkout@ec3a7ce113134d7a93b817d10a8272cb61118579 # v2.3.4
+        with:
+          fetch-depth: 0
+      - id: ldflags
+        run: |
+          echo "::set-output name=version::v1.2.3"
+          echo "::set-output name=something::something-fun"
+          
+  build:
+    needs: args
+    permissions:
+      id-token: write
+      contents: read
+      packages: write
+    uses: laurentsimon/slsa-github-generator-ko/.github/workflows/slsa3-builder.yml@main
+    with:
+      args: -B --platform=linux/amd64,linux/arm64,linux/386,linux/arm --tags=tag5,tag6 .
+      username: laurentsimon
+      envs: KO_DOCKER_REPO=docker.io/laurentsimon,GIT_VERSION=${{needs.args.outputs.version}},GIT_SOMETHING=${{needs.args.outputs.something}}
+    secrets:
+      password: ${{ secrets.DOCKER_TOKEN }}
+
+  upload:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Print
+        run: |
+          echo "${{ needs.build.outputs.image }}"
